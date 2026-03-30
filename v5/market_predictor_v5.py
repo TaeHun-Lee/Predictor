@@ -85,14 +85,14 @@ except ImportError:
 def print_banner():
     if HAS_RICH:
         console.print(Panel.fit(
-            "[bold cyan]📈 STOCK MARKET PREDICTOR v4.0 📉[/]\n"
-            "[dim]Technical · Macro · ML · LSTM · Sentiment · Omni · Backtesting[/]",
+            "[bold cyan]🌐 글로벌 시장 옴니(Omni) 예측기 v5.0 🚀[/]\n"
+            "[dim]7대 엔진 피처 고도화 · 거시 체제 진단 · ML 앙상블[/]",
             border_style="bright_blue",
         ))
     else:
         print("\n" + "=" * 62)
-        print("  📈  STOCK MARKET PREDICTOR v4.0")
-        print("  Technical · Macro · ML · LSTM · Sentiment · Omni · Backtesting")
+        print("  🌐  글로벌 시장 옴니(Omni) 예측기 v5.0")
+        print("  7대 엔진 피처 고도화 · 거시 체제 진단 · ML 앙상블")
         print("=" * 62)
 
 
@@ -113,38 +113,40 @@ def print_signal(signal: str, confidence: float):
     bar = "█" * bar_len + "░" * (30 - bar_len)
     if HAS_RICH:
         color = {"BULLISH": "green", "BEARISH": "red", "NEUTRAL": "yellow"}.get(signal, "white")
-        console.print(f"  {icon}  Prediction: [{color} bold]{signal}[/]")
-        console.print(f"     Confidence: [{color}]{bar}[/] {confidence:.1%}")
+        label = {"BULLISH": "강세장 (Bullish)", "BEARISH": "약세장 (Bearish)", "NEUTRAL": "혼조세 (Neutral)"}.get(signal, signal)
+        console.print(f"  {icon}  시장 국면 판단: [{color} bold]{label}[/]")
+        console.print(f"     판단 확신도: [{color}]{bar}[/] {confidence:.1%}")
     else:
-        print(f"  {icon}  Prediction: {signal}")
-        print(f"     Confidence: {bar} {confidence:.1%}")
+        label = {"BULLISH": "강세장 (Bullish)", "BEARISH": "약세장 (Bearish)", "NEUTRAL": "혼조세 (Neutral)"}.get(signal, signal)
+        print(f"  {icon}  시장 국면 판단: {label}")
+        print(f"     판단 확신도: {bar} {confidence:.1%}")
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  DATA FETCHING  (enhanced with macro indicators)
+#  DATA FETCHING  (enhanced with v5 specs)
 # ═══════════════════════════════════════════════════════════════════
 
 class UnifiedDataFetcher:
-    """v2 DataFetcher + v3 OmniDataFetcher 통합"""
+    """v5 High-Fidelity Data Infrastructure"""
 
     MARKET_SUFFIXES = {"kospi": ".KS", "kosdaq": ".KQ"}
 
     MACRO_TICKERS = {
-        "^TNX":     "US10Y_Yield",
-        "^FVX":     "US5Y_Yield",
-        "^IRX":     "US3M_Yield",
-        "^VIX":     "VIX",
-        "DX-Y.NYB": "DXY",
-        "GC=F":     "Gold",
-        "CL=F":     "Oil_WTI",
-        "^GSPC":    "SP500",
-        "^IXIC":    "NASDAQ",
-        "HYG":      "HYG",
-        "TLT":      "TLT",
-        "^VIX3M":   "VIX3M",
-        "HG=F":     "Copper",
-        "SOXX":     "Semiconductors",
-        "BTC-USD":  "BTC",
+        "^TNX":     "US10Y",      # US 10Y Yield
+        "^FVX":     "US5Y",       # US 5Y Yield (Used as 2Y proxy if 2Y not available)
+        "^IRX":     "US3M",       # US 3M Yield
+        "^VIX":     "VIX",        # VIX Spot
+        "^VIX3M":   "VIX3M",      # VIX 3M
+        "DX-Y.NYB": "DXY",        # US Dollar Index
+        "GC=F":     "Gold",       # Gold Futures
+        "HG=F":     "Copper",     # Copper Futures
+        "CL=F":     "Oil_WTI",    # Crude Oil
+        "HYG":      "HYG",        # High Yield Corporate Bond ETF
+        "TLT":      "TLT",        # 20+ Year Treasury Bond ETF
+        "SOXX":     "SOXX",       # Semiconductor ETF
+        "BTC-USD":  "BTC",        # Bitcoin
+        "^GSPC":    "SP500",      # S&P 500 Index
+        "^IXIC":    "NASDAQ",     # NASDAQ Composite
     }
 
     MAG7_TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
@@ -160,253 +162,303 @@ class UnifiedDataFetcher:
     @staticmethod
     def fetch(symbol: str, market: str = "us", period: str = "2y") -> pd.DataFrame:
         if not HAS_YFINANCE:
-            raise ImportError("yfinance required: pip install yfinance")
+            raise ImportError("yfinance 패키지가 필요합니다: pip install yfinance")
 
         ticker = UnifiedDataFetcher.get_ticker(symbol, market)
-        rprint(f"  ⏳  Fetching data for [bold]{ticker}[/] (period={period}) ...")
+        rprint(f"  ⏳  데이터 수집 중: [bold]{ticker}[/] (기간={period}) ...")
 
         df = yf.download(ticker, period=period, progress=False, auto_adjust=True)
         if df.empty:
-            raise ValueError(f"No data for {ticker}.")
+            raise ValueError(f"{ticker}에 대한 데이터를 찾을 수 없습니다.")
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         df.index = pd.to_datetime(df.index)
         df = df.sort_index()
-        rprint(f"  ✅  {len(df)} trading days ({df.index[0].date()} → {df.index[-1].date()})")
+        
+        # NaN Handling for main asset
+        df = df.ffill().bfill()
+        
+        rprint(f"  ✅  {len(df)} 거래일 로드 완료 ({df.index[0].date()} → {df.index[-1].date()})")
         return df
 
     @staticmethod
     def fetch_macro(period: str = "2y") -> pd.DataFrame:
-        rprint("  🌍  Fetching macro indicators ...")
+        rprint("  🌍  거시 경제 지표 수집 중...")
         tickers = list(UnifiedDataFetcher.MACRO_TICKERS.keys())
         try:
             raw = yf.download(tickers, period=period, progress=False, auto_adjust=True)
             if raw.empty:
                 return pd.DataFrame()
+            
             close = raw["Close"]
             if isinstance(close, pd.Series):
                 close = close.to_frame()
+            
             rename_map = {}
             for col in close.columns:
                 for yahoo_ticker, internal_name in UnifiedDataFetcher.MACRO_TICKERS.items():
                     if col == yahoo_ticker:
                         rename_map[col] = internal_name
+            
             close = close.rename(columns=rename_map)
-            rprint(f"  ✅  Macro data loaded: {list(close.columns)}")
+            
+            # Anti-bias: ffill/bfill to handle market holidays across different assets
+            close = close.ffill().bfill()
+            
+            rprint(f"  ✅  거시 데이터 로드 완료: {list(close.columns)}")
             return close
         except Exception as e:
-            rprint(f"  ⚠️  Macro fetch failed: {e}")
+            rprint(f"  ⚠️  거시 데이터 수집 실패: {e}")
             return pd.DataFrame()
 
     @staticmethod
     def fetch_mag7(period: str = "2y") -> pd.DataFrame:
-        rprint("  🔥  Fetching Mag7 indicators ...")
+        rprint("  🔥  Mag7 지표 수집 중...")
         try:
             df = yf.download(
                 UnifiedDataFetcher.MAG7_TICKERS,
                 period=period, progress=False, auto_adjust=True
             )["Close"]
+            
+            # NaN Handling
+            df = df.ffill().bfill()
+            
             return df
         except Exception as e:
-            rprint(f"  ⚠️  Mag7 fetch failed: {e}")
+            rprint(f"  ⚠️  Mag7 데이터 수집 실패: {e}")
             return pd.DataFrame()
 
 
+
 # ═══════════════════════════════════════════════════════════════════
-#  v3 ENGINE 1~7
+#  v5 ENGINE 1~7: Quantitative Alpha Models
 # ═══════════════════════════════════════════════════════════════════
 
 class Engine1_Macro:
-    """1. 거시경제 및 통화 정책 (금리, 환율, 그림자 금융 프록시)"""
+    """1. 거시경제 및 통화 정책 (Macro Liquidity & Rates)"""
     @staticmethod
     def analyze(macro_df):
-        score = 0
+        score = 0.0
         details = []
-        latest = macro_df.iloc[-1] if not macro_df.empty else pd.Series()
+        if macro_df.empty: return {"score": 0.0, "details": ["데이터 없음"]}
+        latest = macro_df.iloc[-1]
         
-        # 장단기 금리차 (10Y - 2Y)
-        if "US10Y" in latest and "US2Y" in latest:
-            spread = latest["US10Y"] - latest["US2Y"]
+        # Yield Curve 10Y-2Y (Proxy: 10Y - 5Y if 2Y missing)
+        if "US10Y" in macro_df and "US5Y" in macro_df:
+            spread = latest["US10Y"] - latest["US5Y"]
             if spread < 0:
-                score -= 2; details.append("장단기 금리 역전 (강력한 침체 경고)")
-            elif spread > 1:
-                score += 1; details.append("금리차 확대 (경기 확장국면)")
-                
-        # 하이일드 스프레드 프록시 (HYG/TLT 비율) - 신용 경색 위험도
+                score -= 2.5; details.append(f"수익률 곡선 역전 ({spread:.2f})")
+            elif spread > 1.0:
+                score += 1.0; details.append("수익률 곡선 가팔라짐 (경기 확장)")
+
+        # Credit Spread Proxy: (HYG / TLT) / SMA(HYG / TLT, 20) - 1
         if "HYG" in macro_df and "TLT" in macro_df:
-            credit_ratio = (macro_df["HYG"] / macro_df["TLT"]).pct_change(20).iloc[-1]
-            if credit_ratio < -0.05:
-                score -= 1.5; details.append("하이일드 신용 경색 징후")
-                
-        # 환율 및 달러 인덱스
-        if "DXY" in latest:
-            dxy_roc = macro_df["DXY"].pct_change(10).iloc[-1]
-            if dxy_roc > 0.02:
-                score -= 1; details.append("강달러 (글로벌 유동성 축소)")
-            elif dxy_roc < -0.02:
-                score += 1; details.append("약달러 (위험 자산 선호)")
-                
+            ratio = macro_df["HYG"] / macro_df["TLT"]
+            ratio_sma = ratio.rolling(20).mean()
+            accel = (ratio / ratio_sma - 1).iloc[-1]
+            if accel < -0.02:
+                score -= 2.0; details.append(f"신용 위험 가속 ({accel:.1%})")
+            elif accel > 0.02:
+                score += 1.5; details.append(f"신용 환경 개선 ({accel:.1%})")
+
+        # DXY Trend: 5-day & 20-day ROC Average
+        if "DXY" in macro_df:
+            dxy_roc5 = macro_df["DXY"].pct_change(5).iloc[-1]
+            dxy_roc20 = macro_df["DXY"].pct_change(20).iloc[-1]
+            avg_roc = (dxy_roc5 + dxy_roc20) / 2
+            if avg_roc > 0.01:
+                score -= 1.5; details.append(f"강달러 자금 이탈 ({avg_roc:.1%})")
+            elif avg_roc < -0.01:
+                score += 1.5; details.append(f"약달러 유동성 공급 ({avg_roc:.1%})")
+
         return {"score": score, "details": details}
 
 class Engine2_Fundamentals:
-    """2. 펀더멘털 및 메가캡 동조화"""
+    """2. 펀더멘털 및 메가캡 내부 건전성"""
     @staticmethod
-    def analyze(mag7_df):
-        score = 0
+    def analyze(mag7_df, main_df):
+        score = 0.0
         details = []
-        if mag7_df.empty: return {"score": 0, "details": ["데이터 없음"]}
+        if mag7_df.empty: return {"score": 0.0, "details": ["데이터 없음"]}
         
-        # 메가캡 트렌드 (Mag 7 상승 종목 비율)
-        recent_returns = mag7_df.pct_change(5).iloc[-1]
-        advancing = (recent_returns > 0).sum()
-        total = len(recent_returns.dropna())
+        # Mag7 Alignment: Count stocks above their 5-day SMA
+        mag7_sma5 = mag7_df.rolling(5).mean()
+        alignment = (mag7_df.iloc[-1] > mag7_sma5.iloc[-1]).sum()
+        score += (alignment - 3.5) * 0.5  # Neutral is 3-4 stocks
+        details.append(f"Mag7 동조화: {alignment}/7 종목 상승 우세")
         
-        if total > 0:
-            breadth = advancing / total
-            if breadth >= 0.7:
-                score += 2; details.append("Mag7 메가캡 강력한 동반 상승세")
-            elif breadth <= 0.3:
-                score -= 2; details.append("Mag7 메가캡 자금 이탈 (지수 하방 압력)")
+        # Index Valuation Proxy: Close / SMA(200)
+        close = main_df["Close"].iloc[-1]
+        sma200 = main_df["Close"].rolling(200).mean().iloc[-1]
+        if pd.notna(sma200):
+            overheat = (close / sma200) - 1
+            if overheat > 0.15:
+                score -= 2.0; details.append(f"역사적 과열 ({overheat:.1%})")
+            elif overheat < -0.15:
+                score += 2.0; details.append(f"역사적 저평가/침체 ({overheat:.1%})")
                 
-        details.append("배당/자사주 매입, 행동주의 개입 여부 (API 연동 대기중)")
         return {"score": score, "details": details}
 
 class Engine3_TechnicalFlows:
-    """3. 기술적 지표 및 수급 (기관/패시브 자금 프록시)"""
+    """3. 기술적 지표 및 시스템 수급"""
     @staticmethod
     def analyze(df):
-        score = 0
+        score = 0.0
         details = []
-        close = df["Close"]
-        vol = df["Volume"]
+        if len(df) < 20: return {"score": 0.0, "details": ["데이터 부족"]}
         
-        # 추세 강도 및 과매수/매도
-        rsi = 100 - (100 / (1 + (close.diff().clip(lower=0).rolling(14).mean() / (-close.diff().clip(upper=0)).rolling(14).mean())))
-        latest_rsi = rsi.iloc[-1]
+        # MFI Signal (Money Flow Index) Proxy
+        typical_price = (df["High"] + df["Low"] + df["Close"]) / 3
+        money_flow = typical_price * df["Volume"]
+        # Simplified MFI logic for the engine
+        pos_flow = (money_flow * (typical_price.diff() > 0).astype(int)).rolling(14).sum()
+        neg_flow = (money_flow * (typical_price.diff() < 0).astype(int)).rolling(14).sum()
+        mfi = 100 - (100 / (1 + pos_flow / neg_flow.replace(0, 1e-9))).iloc[-1]
         
-        if latest_rsi < 30: score += 1.5; details.append("RSI 과매도 (반등 가능성)")
-        elif latest_rsi > 70: score -= 1.5; details.append("RSI 과매수 (조정 위험)")
-        
-        # 거래량 기반 수급 (스마트 머니 유입 프록시)
-        vol_sma = vol.rolling(20).mean().iloc[-1]
-        if vol.iloc[-1] > vol_sma * 1.5 and close.iloc[-1] > close.iloc[-2]:
-            score += 1; details.append("대량 거래 동반 상승 (기관 매집 징후)")
-            
+        if mfi > 80:
+            score -= 1.5; details.append(f"MFI 과매수 ({mfi:.1f})")
+        elif mfi < 20:
+            score += 1.5; details.append(f"MFI 과매도 ({mfi:.1f})")
+
+        # Relative Volume Shock: Volume / SMA(Volume, 20)
+        vol_ratio = (df["Volume"] / df["Volume"].rolling(20).mean()).iloc[-1]
+        if vol_ratio > 2.0:
+            direction = 1 if df["Close"].diff().iloc[-1] > 0 else -1
+            score += direction * 2.0
+            details.append(f"거래량 폭발 ({vol_ratio:.1f}x)")
+
         return {"score": score, "details": details}
 
 class Engine4_Derivatives:
-    """4. 파생상품 및 마이크로 구조 (VIX 기간구조, GEX/0DTE 프레임워크)"""
+    """4. 파생상품 및 변동성 체제 (Volatility Regime)"""
     @staticmethod
     def analyze(macro_df):
-        score = 0
+        score = 0.0
         details = []
-        
-        # VIX 기간 구조 (단기 VIX vs 3개월 VIX) - 백워데이션 투매 위험
-        if "VIX" in macro_df and "VIX3M" in macro_df:
-            vix = macro_df["VIX"].iloc[-1]
-            vix3m = macro_df["VIX3M"].iloc[-1]
-            term_structure = vix / vix3m
+        if "VIX" not in macro_df or "VIX3M" not in macro_df:
+            return {"score": 0.0, "details": ["VIX 데이터 부족"]}
             
-            if term_structure > 1.0:
-                score -= 2.5; details.append("VIX 백워데이션 (극단적 시장 패닉/투매)")
-            elif term_structure < 0.8:
-                score += 1; details.append("VIX 콘탱고 (안정적인 변동성 구조)")
-                
-        details.append("0DTE 거래량, 감마 노출(GEX), 다크풀 지수(DIX) (외부 HFT 데이터 피드 필요)")
+        # Term Structure Premium: VIX / VIX3M
+        vix = macro_df["VIX"].iloc[-1]
+        vix3m = macro_df["VIX3M"].iloc[-1]
+        tsp = vix / vix3m
+        if tsp > 1.05:
+            score -= 3.0; details.append(f"백워데이션: 즉각적 위기 ({tsp:.2f})")
+        elif tsp < 0.90:
+            score += 1.0; details.append(f"강한 콘탱고: 안정기 ({tsp:.2f})")
+            
+        # VIX Regime Change: VIX / SMA(VIX, 10)
+        vix_sma10 = macro_df["VIX"].rolling(10).mean().iloc[-1]
+        regime_ratio = vix / vix_sma10
+        if regime_ratio > 1.2:
+            score -= 2.0; details.append(f"변동성 체제 급변 (Ratio: {regime_ratio:.2f})")
+            
         return {"score": score, "details": details}
 
 class Engine5_SentimentAlt:
-    """5. 심리 및 비정형 대체 데이터"""
-    @staticmethod
-    def analyze():
-        score = 0
-        details = []
-        
-        # 프레임워크 제공 (API 키 필요 항목 대체)
-        details.append("뉴스 미디어 감성 NLP 파싱 (정상)")
-        details.append("위성 이미지, 전용기 추적, 음성 스트레스 (외부 데이터 연동 대기중)")
-        
-        # 극단적 공포/탐욕은 간접적으로 중립 점수 부여
-        return {"score": score, "details": details}
-
-class Engine6_CrossAsset:
-    """6. 교차 자산 및 섹터 연결성 (실물 경제 및 선행 지표)"""
-    @staticmethod
-    def analyze(macro_df):
-        score = 0
-        details = []
-        latest = macro_df.pct_change(10).iloc[-1] if not macro_df.empty else pd.Series()
-        
-        # Dr. Copper (구리) - 실물 경기 척도
-        if "COPPER" in latest and latest["COPPER"] > 0.05:
-            score += 1.5; details.append("구리 가격 급등 (글로벌 산업 수요 팽창)")
-            
-        # 반도체 지수 (IT 선행)
-        if "SEMI" in latest and latest["SEMI"] < -0.05:
-            score -= 1.5; details.append("반도체 지수 하락 (테크 섹터 선행 리스크)")
-            
-        # 비트코인 (극단적 위험 선호도)
-        if "BTC" in latest and latest["BTC"] > 0.1:
-            score += 1; details.append("비트코인 랠리 (Risk-On 심리 강력)")
-            
-        return {"score": score, "details": details}
-
-class Engine7_BehavioralRisks:
-    """7. 구조적, 행동재무학적 리스크"""
+    """5. 심리 및 이벤트 윈도우 (Sentiment & Calendar)"""
     @staticmethod
     def analyze(main_df):
-        score = 0
+        score = 0.0
         details = []
         today = main_df.index[-1]
         
-        # 계절성 (월말 리밸런싱 및 요일 효과)
-        if today.day > 25:
-            details.append("월말 윈도우 드레싱/리밸런싱 변동성 주의")
+        # Event Window: Month-end rebalancing (25th to end)
+        if today.day >= 25:
+            score -= 0.5; details.append("월말 리밸런싱 변동성 구간")
             
-        if today.month == 12 and today.day > 20:
-            score += 1; details.append("산타 랠리 계절성 진입")
+        # Sentiment Proxy: RSI extreme reversal
+        # Logic can be expanded with external API
+        details.append("뉴스 감성 엔진 (기본값 중립)")
+        
+        return {"score": score, "details": details}
+
+class Engine6_CrossAsset:
+    """6. 교차 자산 연결성 (Intermarket Analysis)"""
+    @staticmethod
+    def analyze(macro_df, main_df):
+        score = 0.0
+        details = []
+        if macro_df.empty: return {"score": 0.0, "details": ["데이터 부족"]}
+        
+        # Copper-Gold Alpha: 경기 민감 vs 안전 자산
+        if "Copper" in macro_df and "Gold" in macro_df:
+            copper_roc = macro_df["Copper"].pct_change(10).iloc[-1]
+            gold_roc = macro_df["Gold"].pct_change(10).iloc[-1]
+            alpha = copper_roc - gold_roc
+            if alpha > 0.03:
+                score += 2.0; details.append(f"경기 확장 시그널 (Alpha: {alpha:.1%})")
+            elif alpha < -0.03:
+                score -= 2.0; details.append(f"안전 자산 선호 (Alpha: {alpha:.1%})")
+
+        # Semi Lead-Lag: SOXX ROC(5) - Index ROC(5)
+        if "SOXX" in macro_df:
+            soxx_roc = macro_df["SOXX"].pct_change(5).iloc[-1]
+            idx_roc = main_df["Close"].pct_change(5).iloc[-1]
+            lead_lag = soxx_roc - idx_roc
+            if lead_lag > 0.02:
+                score += 1.5; details.append(f"반도체 주도력 강화 ({lead_lag:.1%})")
+            elif lead_lag < -0.02:
+                score -= 1.5; details.append(f"테크 섹터 이탈 ({lead_lag:.1%})")
+                
+        return {"score": score, "details": details}
+
+class Engine7_BehavioralRisks:
+    """7. 구조적 및 행동재무학적 리스크 (Tail Risk)"""
+    @staticmethod
+    def analyze(main_df):
+        score = 0.0
+        details = []
+        
+        # Tail Risk Score: StdDev(5) / StdDev(60)
+        returns = main_df["Close"].pct_change()
+        vol_short = returns.rolling(5).std()
+        vol_long = returns.rolling(60).std()
+        tail_risk = (vol_short / vol_long).iloc[-1]
+        
+        if tail_risk > 2.5:
+            score -= 2.5; details.append(f"꼬리 위험 증폭 ({tail_risk:.2f})")
             
-        # 변동성 군집 현상 (Flash Crash 리스크)
-        std_5d = main_df["Close"].pct_change().rolling(5).std().iloc[-1]
-        std_20d = main_df["Close"].pct_change().rolling(20).std().iloc[-1]
-        if std_5d > std_20d * 2:
-            score -= 1.5; details.append("초단기 변동성 급증 (알고리즘 연쇄 반응 리스크)")
+        # Exhaustion Score: Number of up days in last 10 days
+        up_days = (returns.iloc[-10:] > 0).sum()
+        if up_days >= 8:
+            score -= 1.5; details.append(f"매수 소진 가능성 ({up_days}/10일 상승)")
+        elif up_days <= 2:
+            score += 1.5; details.append(f"매도 소진/과매도 ({up_days}/10일 상승)")
             
         return {"score": score, "details": details}
 
 
 
+
 # ═══════════════════════════════════════════════════════════════════
-#  ENGINE FEATURE EXTRACTOR (v4)
+#  ENGINE FEATURE EXTRACTOR (v5)
 # ═══════════════════════════════════════════════════════════════════
 
 class EngineFeatureExtractor:
-    """v3 엔진 점수 → ML 피처 DataFrame 변환기"""
+    """v5 엔진 점수 → ML 피처 DataFrame 변환기 (Anti-Bias 적용)"""
 
     @staticmethod
     def compute(main_df: pd.DataFrame, macro_df: pd.DataFrame,
                 mag7_df: pd.DataFrame) -> pd.DataFrame:
         results = []
         dates = main_df.index
-        start_idx = max(60, len(dates) - 300)
+        # We need at least 60 days of data for some indicators (SMA 200 needs more, but 60 is start)
+        start_idx = max(60, len(dates) - 500) 
 
-        compat_map = {
-            "US10Y_Yield": "US10Y",
-            "US3M_Yield": "US2Y",
-            "Copper": "COPPER",
-            "Semiconductors": "SEMI",
-            "BTC": "BTC",
-        }
+        rprint(f"  ⚙️  7대 엔진 피처 생성 중 (샘플 수: {len(dates) - start_idx}) ...")
 
         for j in range(start_idx, len(dates)):
             date_j = dates[j]
+            # Slices up to j-1 to strictly prevent look-ahead bias for THE DAY we are predicting
+            # BUT: In this loop, we are generating features FOR date_j based on data AVAILABLE at date_j (inclusive of date_j? No, if we predict T+1)
+            # Standard procedure: Features at time T used to predict direction at T+1.
+            # So features for 'date_j' should use data up to 'date_j'.
+            
             main_slice = main_df.iloc[:j+1]
             macro_slice = macro_df.loc[:date_j] if not macro_df.empty else pd.DataFrame()
             mag7_slice = mag7_df.loc[:date_j] if not mag7_df.empty else pd.DataFrame()
             
-            if not macro_slice.empty:
-                macro_slice = macro_slice.rename(columns=compat_map)
-
             row = {"date": date_j}
 
             try:
@@ -414,7 +466,8 @@ class EngineFeatureExtractor:
             except Exception: row["engine1_macro"] = 0.0
 
             try:
-                row["engine2_fundamentals"] = Engine2_Fundamentals.analyze(mag7_slice)["score"]
+                # Engine 2 now needs mag7 and main_df
+                row["engine2_fundamentals"] = Engine2_Fundamentals.analyze(mag7_slice, main_slice)["score"]
             except Exception: row["engine2_fundamentals"] = 0.0
 
             try:
@@ -426,11 +479,13 @@ class EngineFeatureExtractor:
             except Exception: row["engine4_derivatives"] = 0.0
 
             try:
-                row["engine5_sentiment"] = Engine5_SentimentAlt.analyze()["score"]
+                # Engine 5 now can use main_df for calendar/sentiment proxy
+                row["engine5_sentiment"] = Engine5_SentimentAlt.analyze(main_slice)["score"]
             except Exception: row["engine5_sentiment"] = 0.0
 
             try:
-                row["engine6_cross_asset"] = Engine6_CrossAsset.analyze(macro_slice)["score"]
+                # Engine 6 needs macro and main
+                row["engine6_cross_asset"] = Engine6_CrossAsset.analyze(macro_slice, main_slice)["score"]
             except Exception: row["engine6_cross_asset"] = 0.0
 
             try:
@@ -444,6 +499,13 @@ class EngineFeatureExtractor:
             
         feat_df = pd.DataFrame(results).set_index("date")
 
+        # Anti-Bias: Shift features by 1 to ensure ML model at time T only sees data from T-1
+        # because the Target is the return from T to T+1.
+        # However, in v4 logic, prepare_data joins features and Target.
+        # If Target at T is Close(T+1)/Close(T), then Features at T must not know T+1.
+        # Our slices already stop at j (inclusive), so Features at j know Close(j).
+        # This is fine for predicting j+1.
+        
         engine_cols = [c for c in feat_df.columns if c.startswith("engine")]
         feat_df["engine_total_score"] = feat_df[engine_cols].sum(axis=1)
 
@@ -461,10 +523,10 @@ class EngineFeatureExtractor:
 
         return feat_df
 
-class MacroFeatures:
-    """Derive trading-relevant features from macro data."""
 
-    @staticmethod
+class MacroFeatures:
+    """Derive trading-relevant features from macro data (v5 Optimized)."""
+
     @staticmethod
     def compute(macro_df: pd.DataFrame) -> pd.DataFrame:
         if macro_df.empty:
@@ -472,9 +534,9 @@ class MacroFeatures:
 
         feat = pd.DataFrame(index=macro_df.index)
 
-        # ── Yield Curve Spread (10Y - 3M) — recession indicator ──
-        if "US10Y_Yield" in macro_df and "US3M_Yield" in macro_df:
-            feat["Yield_Spread_10Y3M"] = macro_df["US10Y_Yield"] - macro_df["US3M_Yield"]
+        # ── Yield Curve Spread (10Y - 3M) ──
+        if "US10Y" in macro_df and "US3M" in macro_df:
+            feat["Yield_Spread_10Y3M"] = macro_df["US10Y"] - macro_df["US3M"]
             feat["Yield_Spread_Chg5"] = feat["Yield_Spread_10Y3M"].diff(5)
 
         # ── VIX features ──
@@ -482,7 +544,6 @@ class MacroFeatures:
             feat["VIX"] = macro_df["VIX"]
             feat["VIX_SMA10"] = macro_df["VIX"].rolling(10).mean()
             feat["VIX_Ratio"] = macro_df["VIX"] / feat["VIX_SMA10"]
-            feat["VIX_Chg5"] = macro_df["VIX"].pct_change(5)
             feat["VIX_Regime"] = pd.cut(
                 macro_df["VIX"],
                 bins=[0, 15, 25, 35, 100],
@@ -495,25 +556,14 @@ class MacroFeatures:
 
         if "Gold" in macro_df:
             feat["Gold_ROC5"] = macro_df["Gold"].pct_change(5) * 100
-            feat["Gold_ROC20"] = macro_df["Gold"].pct_change(20) * 100
 
         if "Oil_WTI" in macro_df:
             feat["Oil_ROC5"] = macro_df["Oil_WTI"].pct_change(5) * 100
-            feat["Oil_ROC20"] = macro_df["Oil_WTI"].pct_change(20) * 100
 
         if "SP500" in macro_df:
             feat["SP500_ROC5"] = macro_df["SP500"].pct_change(5) * 100
-            feat["SP500_SMA50"] = macro_df["SP500"].rolling(50).mean()
-            feat["SP500_Above_SMA50"] = (macro_df["SP500"] > feat["SP500_SMA50"]).astype(float)
+            feat["SP500_Above_SMA200"] = (macro_df["SP500"] > macro_df["SP500"].rolling(200).mean()).astype(float)
 
-        if "NASDAQ" in macro_df:
-            feat["NASDAQ_ROC5"] = macro_df["NASDAQ"].pct_change(5) * 100
-
-        momentum_cols = [c for c in feat.columns if "ROC5" in c]
-        if momentum_cols:
-            feat["Macro_Momentum"] = feat[momentum_cols].mean(axis=1)
-
-        # ── 신규 추가 피처 (v3) ──
         if "HYG" in macro_df and "TLT" in macro_df:
             feat["HYG_TLT_Ratio"] = macro_df["HYG"] / macro_df["TLT"]
             feat["HYG_TLT_ROC20"] = feat["HYG_TLT_Ratio"].pct_change(20) * 100
@@ -524,15 +574,17 @@ class MacroFeatures:
         if "Copper" in macro_df:
             feat["Copper_ROC10"] = macro_df["Copper"].pct_change(10) * 100
 
-        if "Semiconductors" in macro_df:
-            feat["Semi_ROC10"] = macro_df["Semiconductors"].pct_change(10) * 100
+        if "SOXX" in macro_df:
+            feat["Semi_ROC10"] = macro_df["SOXX"].pct_change(10) * 100
 
         if "BTC" in macro_df:
             feat["BTC_ROC10"] = macro_df["BTC"].pct_change(10) * 100
 
         return feat
+
+    @staticmethod
     def get_signal(macro_feat: pd.DataFrame) -> dict:
-        """Simple rule-based macro signal."""
+        """Simple rule-based macro signal for report summary."""
         if macro_feat.empty:
             return {"signal": "N/A", "confidence": 0.0, "note": "No macro data"}
 
@@ -542,50 +594,31 @@ class MacroFeatures:
         # Yield curve
         if "Yield_Spread_10Y3M" in latest and pd.notna(latest["Yield_Spread_10Y3M"]):
             spread = float(latest["Yield_Spread_10Y3M"])
-            if spread < 0:
-                scores.append(("Yield Curve (Inverted)", "BEARISH", 1.5))
-            elif spread > 1.0:
-                scores.append(("Yield Curve (Steep)", "BULLISH", 1.0))
-            else:
-                scores.append(("Yield Curve (Flat)", "NEUTRAL", 0.5))
+            if spread < 0: scores.append(("Yield Curve (Inverted)", "BEARISH", 1.5))
+            elif spread > 1.0: scores.append(("Yield Curve (Steep)", "BULLISH", 1.0))
 
         # VIX
         if "VIX" in latest and pd.notna(latest["VIX"]):
             vix = float(latest["VIX"])
-            if vix > 30:
-                scores.append(("VIX (Fear)", "BEARISH", 1.3))
-            elif vix < 15:
-                scores.append(("VIX (Complacency)", "BULLISH", 0.8))
-            else:
-                scores.append(("VIX (Normal)", "NEUTRAL", 0.3))
+            if vix > 25: scores.append(("VIX (Fear)", "BEARISH", 1.3))
+            elif vix < 15: scores.append(("VIX (Complacency)", "BULLISH", 0.8))
 
-        # Dollar strength
-        if "DXY_ROC5" in latest and pd.notna(latest["DXY_ROC5"]):
-            dxy = float(latest["DXY_ROC5"])
-            if dxy > 1:
-                scores.append(("Dollar Strength", "BEARISH", 0.7))
-            elif dxy < -1:
-                scores.append(("Dollar Weakness", "BULLISH", 0.7))
-
-        # SP500 trend
-        if "SP500_Above_SMA50" in latest and pd.notna(latest["SP500_Above_SMA50"]):
-            if latest["SP500_Above_SMA50"] > 0:
-                scores.append(("S&P500 Trend", "BULLISH", 1.0))
-            else:
-                scores.append(("S&P500 Trend", "BEARISH", 1.0))
+        # HYG/TLT
+        if "HYG_TLT_ROC20" in latest and pd.notna(latest["HYG_TLT_ROC20"]):
+            roc = float(latest["HYG_TLT_ROC20"])
+            if roc > 2: scores.append(("Credit Environment", "BULLISH", 1.0))
+            elif roc < -2: scores.append(("Credit Stress", "BEARISH", 1.2))
 
         bull = sum(w for _, s, w in scores if s == "BULLISH")
         bear = sum(w for _, s, w in scores if s == "BEARISH")
         total = bull + bear + 0.001
 
-        if bull > bear * 1.2:
-            signal, confidence = "BULLISH", bull / total
-        elif bear > bull * 1.2:
-            signal, confidence = "BEARISH", bear / total
-        else:
-            signal, confidence = "NEUTRAL", 1 - abs(bull - bear) / total
+        if bull > bear: signal, confidence = "BULLISH", bull / total
+        elif bear > bull: signal, confidence = "BEARISH", bear / total
+        else: signal, confidence = "NEUTRAL", 0.5
 
         return {"signal": signal, "confidence": round(confidence, 4), "details": scores}
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -744,152 +777,99 @@ class TechnicalAnalysis:
 class MLPredictor:
 
     TECH_FEATURES = [
-        "RSI", "MACD", "MACD_Signal", "MACD_Hist",
+        "RSI", "MACD", "MACD_Hist",
         "BB_Pct", "BB_Width",
-        "Stoch_K", "Stoch_D",
-        "ATR_Pct",
+        "Stoch_K", "ATR_Pct",
         "Vol_Ratio",
-        "ROC_1", "ROC_5", "ROC_10", "ROC_20",
-        "Williams_R",
+        "ROC_5", "ROC_20",
         "Weekly_Return", "Monthly_Return",
-        "Return_Std_10", "Return_Std_20",
-        "Price_Position_20",
+        "Return_Std_10", "Price_Position_20",
     ]
 
     MACRO_FEATURES = [
-        "Yield_Spread_10Y3M", "Yield_Spread_Chg5",
-        "VIX", "VIX_Ratio", "VIX_Chg5", "VIX_Regime",
-        "DXY_ROC5", "DXY_ROC20",
-        "Gold_ROC5", "Gold_ROC20",
-        "Oil_ROC5", "Oil_ROC20",
-        "SP500_ROC5", "SP500_Above_SMA50",
-        "NASDAQ_ROC5",
-        "Macro_Momentum",
+        "Yield_Spread_10Y3M", "VIX", "VIX_Ratio", "VIX_Regime",
+        "DXY_ROC5", "Gold_ROC5", "Oil_ROC5",
+        "SP500_ROC5", "SP500_Above_SMA200",
         "HYG_TLT_Ratio", "HYG_TLT_ROC20",
         "VIX_Term_Structure",
-        "Copper_ROC10",
-        "Semi_ROC10",
-        "BTC_ROC10",
+        "Copper_ROC10", "Semi_ROC10", "BTC_ROC10",
     ]
 
     ENGINE_FEATURES = [
-        "engine1_macro",
-        "engine2_fundamentals",
-        "engine3_technical",
-        "engine4_derivatives",
-        "engine5_sentiment",
-        "engine6_cross_asset",
-        "engine7_behavioral",
-        "engine_total_score",
-        "engine_bullish_count",
-        "engine_bearish_count",
-        "engine_total_score_chg5",
-        "engine_total_score_sma5",
-        "engine_external_score",
+        "engine1_macro", "engine2_fundamentals", "engine3_technical",
+        "engine4_derivatives", "engine5_sentiment", "engine6_cross_asset",
+        "engine7_behavioral", "engine_total_score", "engine_external_score",
     ]
 
     def __init__(self):
         self.scaler = StandardScaler()
         self.models = {
-            "rf": RandomForestClassifier(
-                n_estimators=300, max_depth=8, min_samples_leaf=12,
-                max_features="sqrt", random_state=42, n_jobs=-1,
-            ),
-            "gb": GradientBoostingClassifier(
-                n_estimators=200, max_depth=5, learning_rate=0.05,
-                subsample=0.8, random_state=42,
-            ),
-            "ada": AdaBoostClassifier(
-                n_estimators=100, learning_rate=0.1, random_state=42,
-            ),
-            "lr": LogisticRegression(
-                max_iter=1000, C=0.5, random_state=42,
-            ),
+            "rf": RandomForestClassifier(n_estimators=300, max_depth=10, random_state=42),
+            "gb": GradientBoostingClassifier(n_estimators=200, learning_rate=0.05, random_state=42),
+            "lr": LogisticRegression(max_iter=1000, C=1.0, random_state=42),
         }
+        self.selected_features = []
 
     def prepare_data(self, df: pd.DataFrame,
                      macro_feat: pd.DataFrame = None,
                      engine_feat: pd.DataFrame = None):
-        available_tech = [c for c in self.TECH_FEATURES if c in df.columns]
         combined = df.copy()
+        if macro_feat is not None: combined = combined.join(macro_feat, how="left")
+        if engine_feat is not None: combined = combined.join(engine_feat, how="left")
 
-        if macro_feat is not None and not macro_feat.empty:
-            combined = combined.join(macro_feat, how="left")
-            available_macro = [c for c in self.MACRO_FEATURES if c in combined.columns]
-        else:
-            available_macro = []
-
-        if engine_feat is not None and not engine_feat.empty:
-            combined = combined.join(engine_feat, how="left")
-            available_engine = [c for c in self.ENGINE_FEATURES if c in combined.columns]
-        else:
-            available_engine = []
-
-        all_features = available_tech + available_macro + available_engine
-        feature_df = combined[all_features + ["Target"]].dropna()
-        X = feature_df[all_features].values
+        all_feats = self.TECH_FEATURES + self.MACRO_FEATURES + self.ENGINE_FEATURES
+        available = [c for c in all_feats if c in combined.columns]
+        
+        feature_df = combined[available + ["Target"]].dropna()
+        X = feature_df[available].values
         y = feature_df["Target"].values
-        return X, y, all_features
+        return X, y, available
+
     def train_and_predict(self, df: pd.DataFrame,
                           macro_feat: pd.DataFrame = None,
                           engine_feat: pd.DataFrame = None) -> dict:
-        if not HAS_SKLEARN:
-            raise ImportError("scikit-learn required: pip install scikit-learn")
+        if not HAS_SKLEARN: raise ImportError("scikit-learn 필요")
 
         X, y, feature_names = self.prepare_data(df, macro_feat, engine_feat)
-        if len(X) < 100:
-            raise ValueError("Not enough data for ML (need ≥100 rows).")
+        if len(X) < 100: raise ValueError("데이터 부족")
 
-        rprint(f"  🤖  Training ML ensemble ({len(feature_names)} features, {len(X)} samples) ...")
+        rprint(f"  🤖  ML 앙상블 학습 및 피처 최적화 중 ({len(feature_names)}개 피처) ...")
 
-        tscv = TimeSeriesSplit(n_splits=5)
-        model_scores = defaultdict(list)
+        # 1. Initial fit to get feature importance
+        rf_initial = RandomForestClassifier(n_estimators=100, random_state=42)
+        rf_initial.fit(X[:-1], y[:-1])
+        
+        importances = rf_initial.feature_importances_
+        # Keep top 80% features by importance
+        threshold = np.percentile(importances, 20)
+        self.selected_features = [f for i, f in enumerate(feature_names) if importances[i] >= threshold]
+        
+        X_selected = X[:, [i for i, f in enumerate(feature_names) if f in self.selected_features]]
+        
+        rprint(f"  ✅  피처 최적화 완료: {len(feature_names)} -> {len(self.selected_features)} (하위 20% 제거)")
 
-        for train_idx, test_idx in tscv.split(X):
-            X_train, X_test = X[train_idx], X[test_idx]
-            y_train, y_test = y[train_idx], y[test_idx]
-
-            scaler = StandardScaler()
-            X_train_s = scaler.fit_transform(X_train)
-            X_test_s  = scaler.transform(X_test)
-
-            for name, model in self.models.items():
-                model.fit(X_train_s, y_train)
-                model_scores[name].append(model.score(X_test_s, y_test))
-
-        # Final fit on all data except last row
-        X_all_s = self.scaler.fit_transform(X[:-1])
-        for name, model in self.models.items():
-            model.fit(X_all_s, y[:-1])
-
-        # Predict with ensemble
-        X_last = self.scaler.transform(X[-1:])
+        # 2. Train and predict with selected features
+        X_train = self.scaler.fit_transform(X_selected[:-1])
+        X_last = self.scaler.transform(X_selected[-1:])
+        
         probs = []
         for name, model in self.models.items():
-            p = model.predict_proba(X_last)[0]
-            probs.append(p)
+            model.fit(X_train, y[:-1])
+            probs.append(model.predict_proba(X_last)[0])
 
-        # Weighted average (weight by CV score)
-        weights = [np.mean(model_scores[name]) for name in self.models]
-        w_sum = sum(weights)
-        avg_prob = sum(p * w for p, w in zip(probs, weights)) / w_sum
-
+        avg_prob = np.mean(probs, axis=0)
         pred_class = int(np.argmax(avg_prob))
         confidence = float(avg_prob[pred_class])
-        signal = "BULLISH" if pred_class == 1 else "BEARISH"
-
-        importances = dict(zip(feature_names, self.models["rf"].feature_importances_))
-        top_features = sorted(importances.items(), key=lambda x: -x[1])[:8]
-
-        avg_scores = {name: round(np.mean(scores), 4) for name, scores in model_scores.items()}
+        
+        top_imp = sorted(zip(self.selected_features, importances[[feature_names.index(f) for f in self.selected_features]]), key=lambda x: -x[1])[:8]
 
         return {
-            "signal": signal,
+            "signal": "BULLISH" if pred_class == 1 else "BEARISH",
             "confidence": round(confidence, 4),
-            "model_accuracies": avg_scores,
-            "top_features": top_features,
-            "n_features": len(feature_names),
+            "top_features": top_imp,
+            "n_features": len(self.selected_features),
         }
+
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -930,12 +910,12 @@ class LSTMPredictor:
 
     def train_and_predict(self, df: pd.DataFrame) -> dict:
         if not HAS_TF:
-            return {"signal": "N/A", "confidence": 0.0, "note": "TensorFlow not installed."}
+            return {"signal": "N/A", "confidence": 0.0, "note": "TensorFlow가 설치되지 않았습니다."}
 
-        rprint("  🧠  Training LSTM model ...")
+        rprint("  🧠  LSTM 모델 학습 중 ...")
         X, y, scaler = self.prepare_sequences(df)
         if len(X) < 60:
-            return {"signal": "N/A", "confidence": 0.0, "note": "Not enough data for LSTM."}
+            return {"signal": "N/A", "confidence": 0.0, "note": "LSTM 학습을 위한 데이터가 부족합니다."}
 
         split = int(len(X) * 0.8)
         X_train, X_test = X[:split], X[split:]
@@ -984,11 +964,11 @@ class SentimentAnalyzer:
     @staticmethod
     def analyze(symbol: str) -> dict:
         if not HAS_TEXTBLOB:
-            return {"signal": "N/A", "confidence": 0.0, "note": "TextBlob not installed."}
+            return {"signal": "N/A", "confidence": 0.0, "note": "TextBlob 패키지가 설치되지 않았습니다."}
 
         headlines = SentimentAnalyzer.fetch_headlines(symbol)
         if not headlines:
-            return {"signal": "NEUTRAL", "confidence": 0.5, "n_headlines": 0, "note": "No headlines found."}
+            return {"signal": "NEUTRAL", "confidence": 0.5, "n_headlines": 0, "note": "관련 헤드라인을 찾을 수 없습니다."}
 
         sentiments = [TextBlob(h).sentiment.polarity for h in headlines]
         avg = np.mean(sentiments)
@@ -1012,12 +992,12 @@ class SentimentAnalyzer:
 
 class EnsembleCombiner:
     WEIGHTS = {
-        "technical":  0.15,
-        "macro":      0.10,
-        "ml":         0.30,
-        "lstm":       0.15,
-        "sentiment":  0.10,
-        "omni":       0.20,
+        "omni":       0.35,  # High fidelity 7-engine
+        "ml":         0.25,  # Ensemble learning
+        "macro":      0.15,  # Raw macro signal
+        "technical":  0.10,  # Traditional technicals
+        "lstm":       0.10,  # Time-series deep learning
+        "sentiment":  0.05,  # News sentiment
     }
     def combine(**signals) -> dict:
         score = 0.0
@@ -1086,7 +1066,7 @@ class RiskManager:
             take_profit  = close - 3.0 * atr
             trailing     = close + 1.5 * atr
         else:
-            return {"action": "NO TRADE", "reason": "Neutral signal — stay flat."}
+            return {"action": "거래 없음", "reason": "중립 신호 — 관망을 유지합니다."}
 
         return {
             "entry_price":   round(close, 2),
@@ -1136,10 +1116,10 @@ class Backtester:
         - Tracks daily P&L, win rate, drawdowns
         """
         if not HAS_SKLEARN:
-            return {"error": "scikit-learn required for backtesting."}
+            return {"error": "백테스팅을 위해 scikit-learn 패키지가 필요합니다."}
 
-        rprint(f"\n  📊  Running backtest (last {lookback} trading days) ...")
-        rprint(f"      Capital: ${initial_capital:,.0f}  |  Risk/trade: {risk_per_trade:.1%}  |  Costs: {self.commission:.2%} + {self.slippage:.2%}")
+        rprint(f"\n  📊  백테스트 실행 중 (최근 {lookback} 거래일) ...")
+        rprint(f"      자본금: ${initial_capital:,.0f}  |  거래당 위험: {risk_per_trade:.1%}  |  비용: {self.commission:.2%} + {self.slippage:.2%}")
 
         tech_features = MLPredictor.TECH_FEATURES
         macro_features_list = MLPredictor.MACRO_FEATURES
@@ -1310,86 +1290,92 @@ def print_report(symbol, market, tech, macro, ml, lstm, sentiment, omni_result, 
 
     rprint("")
     if HAS_RICH:
-        console.rule(f"[bold] Analysis: {symbol.upper()} ({market.upper()}) — {date} ", style="cyan")
+        console.rule(f"[bold] 📊 시장 종합 분석 리포트: {symbol.upper()} — {date} ", style="cyan")
     else:
-        print(f"\n{'='*62}\n  {symbol.upper()} ({market.upper()}) — {date}")
-    rprint(f"  Last Close: ${close:,.2f}\n")
+        print(f"\n{'='*62}\n  시장 종합 분석 리포트: {symbol.upper()} — {date}")
+    
+    if omni_result.get("regime_name"):
+        rprint(f"  [bold magenta]현 시장 국면: {omni_result['regime_name']}[/]")
+    
+    rprint(f"  지수 종가: ${close:,.2f}\n")
 
     # ── Technical ──
     if HAS_RICH:
-        t = Table(title="📊 Technical Analysis", box=box.ROUNDED, border_style="blue")
-        t.add_column("Indicator", style="cyan", width=22)
-        t.add_column("Signal", justify="center", width=12)
-        t.add_column("Weight", justify="right", width=8)
+        t = Table(title="📈 지수 기술적 분석", box=box.ROUNDED, border_style="blue")
+        t.add_column("지표", style="cyan", width=22)
+        t.add_column("신호", justify="center", width=12)
+        t.add_column("가중치", justify="right", width=8)
         for name, sig, weight in tech.get("details", []):
+            label = {"BULLISH": "상승 우세", "BEARISH": "하락 우세", "NEUTRAL": "중립"}.get(sig, sig)
             color = {"BULLISH": "green", "BEARISH": "red"}.get(sig, "yellow")
-            t.add_row(name, f"[{color}]{sig}[/]", f"{weight:.1f}")
+            t.add_row(name, f"[{color}]{label}[/]", f"{weight:.1f}")
         console.print(t)
     print_signal(tech["signal"], tech["confidence"])
 
     # ── Macro ──
     rprint("")
     if HAS_RICH:
-        console.rule("[bold] 🌍 Macro Environment ", style="cyan")
+        console.rule("[bold] 🌍 거시 시장 체제 (Macro Regime) ", style="cyan")
     if macro.get("signal") != "N/A":
         if HAS_RICH and macro.get("details"):
             t = Table(box=box.SIMPLE)
-            t.add_column("Factor", style="cyan", width=28)
-            t.add_column("Signal", justify="center", width=12)
+            t.add_column("거시 요인", style="cyan", width=28)
+            t.add_column("신호", justify="center", width=12)
             for name, sig, w in macro["details"]:
+                label = {"BULLISH": "상승 우세", "BEARISH": "하락 우세", "NEUTRAL": "중립"}.get(sig, sig)
                 color = {"BULLISH": "green", "BEARISH": "red"}.get(sig, "yellow")
-                t.add_row(name, f"[{color}]{sig}[/]")
+                t.add_row(name, f"[{color}]{label}[/]")
             console.print(t)
         print_signal(macro["signal"], macro["confidence"])
     else:
-        rprint(f"  {macro.get('note', 'Skipped')}")
+        rprint(f"  {macro.get('note', '거시 분석 건너뜀')}")
 
     # ── ML ──
     rprint("")
     if HAS_RICH:
-        console.rule("[bold] 🤖 ML Ensemble ", style="magenta")
+        console.rule("[bold] 🤖 머신러닝(ML) 시장 예측 ", style="magenta")
     if ml.get("signal") != "N/A":
         print_signal(ml["signal"], ml["confidence"])
-        rprint(f"  Features used: {ml.get('n_features', '?')}")
+        rprint(f"  사용된 피처 수: {ml.get('n_features', '?')}개")
         accs = ml.get("model_accuracies", {})
-        rprint(f"  Model CV Accuracies: " + " | ".join(f"{k}: {v:.1%}" for k, v in accs.items()))
-        rprint("  Top Features:")
+        rprint(f"  모델 예측 정확도 (CV): " + " | ".join(f"{k}: {v:.1%}" for k, v in accs.items()))
+        rprint("  주요 시장 변수:")
         for feat, imp in ml.get("top_features", [])[:6]:
             bar = "█" * int(imp * 80)
             rprint(f"    {feat:22s} {bar} ({imp:.3f})")
     else:
-        rprint(f"  {ml.get('note', 'Skipped')}")
+        rprint(f"  {ml.get('note', 'ML 예측 건너뜀')}")
 
     # ── LSTM ──
     rprint("")
     if HAS_RICH:
-        console.rule("[bold] 🧠 LSTM ", style="green")
+        console.rule("[bold] 🧠 LSTM 지수 시계열 예측 ", style="green")
     if lstm.get("signal") != "N/A":
         print_signal(lstm["signal"], lstm["confidence"])
-        rprint(f"  Test accuracy: {lstm.get('test_accuracy', 'N/A'):.1%}")
+        rprint(f"  시계열 테스트 정확도: {lstm.get('test_accuracy', 'N/A'):.1%}")
     else:
-        rprint(f"  {lstm.get('note', 'Skipped')}")
+        rprint(f"  {lstm.get('note', 'LSTM 예측 건너뜀')}")
 
     # ── Sentiment ──
     rprint("")
     if HAS_RICH:
-        console.rule("[bold] 💬 Sentiment ", style="yellow")
+        console.rule("[bold] 💬 시장 감성 및 뉴스 분석 ", style="yellow")
     if sentiment.get("signal") != "N/A":
         print_signal(sentiment["signal"], sentiment["confidence"])
-        rprint(f"  Headlines: {sentiment.get('n_headlines', 0)}  |  Polarity: {sentiment.get('avg_polarity', 'N/A')}")
+        rprint(f"  분석된 뉴스 수: {sentiment.get('n_headlines', 0)}개  |  시장 심리 지수: {sentiment.get('avg_polarity', 'N/A')}")
         for h in sentiment.get("sample_headlines", [])[:3]:
             rprint(f"    • {h[:80]}")
     else:
-        rprint(f"  {sentiment.get('note', 'Skipped')}")
+        rprint(f"  {sentiment.get('note', '감성 분석 건너뜀')}")
 
     # ── Omni 7-Engine Analysis ──
     rprint("")
     if HAS_RICH and omni_result.get("signal") != "N/A":
-        console.rule("[bold] 🌐 7-Engine Omni Analysis ", style="magenta")
+        console.rule("[bold] 🌐 7-엔진 통합 시장 진단 (Omni) ", style="magenta")
         t = Table(box=box.ROUNDED, border_style="magenta")
-        t.add_column("Engine", style="cyan", width=30)
-        t.add_column("Score", justify="center", width=10)
-        t.add_column("Key Findings", style="yellow")
+        t.add_column("분석 엔진", style="cyan", width=30)
+        t.add_column("점수", justify="center", width=10)
+        t.add_column("핵심 감지 사항", style="yellow")
 
         for name, res in omni_result.get("engine_details", {}).items():
             score = res["score"]
@@ -1399,35 +1385,35 @@ def print_report(symbol, market, tech, macro, ml, lstm, sentiment, omni_result, 
 
         console.print(t)
         print_signal(omni_result["signal"], omni_result["confidence"])
-        rprint(f"  Total Score: {omni_result.get('total_score', 0)}")
+        rprint(f"  통합 건전성 점수 (Total Score): {omni_result.get('total_score', 0)}")
     elif omni_result.get("signal") != "N/A":
-        rprint(f"  🌐 Omni Analysis: {omni_result['signal']} ({omni_result.get('total_score', 0)})")
+        rprint(f"  🌐 옴니 분석: {omni_result['signal']} ({omni_result.get('total_score', 0)})")
 
     # ── ENSEMBLE ──
     rprint("")
     if HAS_RICH:
-        console.rule("[bold bright_white] ⚡ FINAL PREDICTION ", style="bright_white")
+        console.rule("[bold bright_white] ⚡ 최종 통합 시장 판정 ", style="bright_white")
     print_signal(ensemble["signal"], ensemble["confidence"])
-    rprint(f"  Score: {ensemble.get('raw_score', 0):.4f}  |  Components: " +
+    rprint(f"  최종 정규화 스코어: {ensemble.get('raw_score', 0):.4f}  |  판정 구성 요소: " +
            " | ".join(f"{k}={v}" for k, v in ensemble.get("components", {}).items()))
 
     # ── Risk Management ──
     rprint("")
     if HAS_RICH:
-        console.rule("[bold] 🛡️  Risk Management ", style="red")
-    if "action" in risk and risk["action"] == "NO TRADE":
+        console.rule("[bold] 🛡️  시장 리스크 관리 및 대응 ", style="red")
+    if "action" in risk and risk["action"] == "거래 없음":
         rprint(f"  ⛔ {risk['reason']}")
     else:
         if HAS_RICH:
             t = Table(box=box.ROUNDED, border_style="red")
-            t.add_column("Parameter", style="bold", width=20)
-            t.add_column("Value", justify="right", width=15)
-            t.add_row("Entry Price",    f"${risk['entry_price']:,.2f}")
-            t.add_row("Stop Loss",      f"${risk['stop_loss']:,.2f}")
-            t.add_row("Take Profit",    f"${risk['take_profit']:,.2f}")
-            t.add_row("Trailing Stop",  f"${risk['trailing_stop']:,.2f}")
-            t.add_row("Risk/Share",     f"${risk['risk_per_share']:,.2f}")
-            t.add_row("Reward:Risk",    f"{risk['reward_ratio']:.1f}:1")
+            t.add_column("대응 항목", style="bold", width=20)
+            t.add_column("기준값", justify="right", width=15)
+            t.add_row("진입 가격 기준",    f"${risk['entry_price']:,.2f}")
+            t.add_row("리스크 차단가 (Stop)",      f"${risk['stop_loss']:,.2f}")
+            t.add_row("목표 수익가 (TP)",    f"${risk['take_profit']:,.2f}")
+            t.add_row("추적 중단가 (Trailing)",  f"${risk['trailing_stop']:,.2f}")
+            t.add_row("지수 변동 위험",     f"${risk['risk_per_share']:,.2f}")
+            t.add_row("보상:위험 비율",    f"{risk['reward_ratio']:.1f}:1")
             console.print(t)
         else:
             for k, v in risk.items():
@@ -1436,29 +1422,29 @@ def print_report(symbol, market, tech, macro, ml, lstm, sentiment, omni_result, 
     # ── Backtest ──
     rprint("")
     if HAS_RICH:
-        console.rule("[bold] 📈 Backtest Results ", style="bright_green")
+        console.rule("[bold] 📈 지수 기반 백테스트 성과 ", style="bright_green")
     if "error" in backtest:
         rprint(f"  ⚠️  {backtest['error']}")
     else:
         if HAS_RICH:
             t = Table(box=box.ROUNDED, border_style="green")
-            t.add_column("Metric", style="bold", width=24)
-            t.add_column("Value", justify="right", width=16)
+            t.add_column("성과 지표", style="bold", width=24)
+            t.add_column("성과값", justify="right", width=16)
 
             ret_color = "green" if backtest["total_return"] > 0 else "red"
-            t.add_row("Final Capital",      f"${backtest['final_capital']:,.2f}")
-            t.add_row("Total Return",       f"[{ret_color}]{backtest['total_return']:+.2f}%[/]")
-            t.add_row("Annualized Return",  f"[{ret_color}]{backtest['annualized_return']:+.2f}%[/]")
-            t.add_row("Total Trades",       f"{backtest['total_trades']}")
-            t.add_row("Win Rate",           f"{backtest['win_rate']:.1f}%")
-            t.add_row("Avg Win",            f"[green]${backtest['avg_win']:,.2f}[/]")
-            t.add_row("Avg Loss",           f"[red]${backtest['avg_loss']:,.2f}[/]")
-            t.add_row("Profit Factor",      f"{backtest['profit_factor']:.2f}")
-            t.add_row("Max Drawdown",       f"[red]{backtest['max_drawdown']:.1f}%[/]")
-            t.add_row("Sharpe Ratio",       f"{backtest['sharpe_ratio']:.2f}")
-            t.add_row("Kelly Fraction",     f"{backtest['kelly_fraction']:.1f}%")
-            t.add_row("Avg Daily Return",   f"{backtest['avg_daily_return']:.4f}%")
-            t.add_row("Days Held (no trade)", f"{backtest['hold_days']}")
+            t.add_row("최종 운용 자산",      f"${backtest['final_capital']:,.2f}")
+            t.add_row("누적 수익률",       f"[{ret_color}]{backtest['total_return']:+.2f}%[/]")
+            t.add_row("연 환산 수익률",  f"[{ret_color}]{backtest['annualized_return']:+.2f}%[/]")
+            t.add_row("총 진입 횟수",       f"{backtest['total_trades']}회")
+            t.add_row("시장 예측 승률",           f"{backtest['win_rate']:.1f}%")
+            t.add_row("평균 수익 거래",            f"[green]${backtest['avg_win']:,.2f}[/]")
+            t.add_row("평균 손실 거래",           f"[red]${backtest['avg_loss']:,.2f}[/]")
+            t.add_row("프로핏 팩터",      f"{backtest['profit_factor']:.2f}")
+            t.add_row("최대 낙폭(MDD)",       f"[red]{backtest['max_drawdown']:.1f}%[/]")
+            t.add_row("샤프 지수",       f"{backtest['sharpe_ratio']:.2f}")
+            t.add_row("켈리 공식 추천 비중",     f"{backtest['kelly_fraction']:.1f}%")
+            t.add_row("일평균 시장 수익률",   f"{backtest['avg_daily_return']:.4f}%")
+            t.add_row("시장 관망일", f"{backtest['hold_days']}일")
             console.print(t)
         else:
             for k, v in backtest.items():
@@ -1469,25 +1455,24 @@ def print_report(symbol, market, tech, macro, ml, lstm, sentiment, omni_result, 
         daily_target = 1.0
         actual_daily = backtest.get("avg_daily_return", 0)
         if actual_daily >= daily_target:
-            rprint("  ✅  Backtest avg daily return meets your 1% target — BUT remember backtest ≠ live.")
+            rprint("  ✅  백테스트 수익률이 목표를 달성했습니다 — 실제 시장 변동성은 백테스트보다 훨씬 복잡할 수 있습니다.")
         else:
-            rprint(f"  ⚠️  Avg daily return ({actual_daily:.4f}%) is below the 1% target.")
-            rprint("     This is expected — consistent 1%/day is extremely difficult.")
-            rprint("     Focus on [bold]win rate + risk management[/] for steady growth.")
+            rprint(f"  ⚠️  일평균 수익률({actual_daily:.4f}%)이 목표치를 하회합니다.")
+            rprint("     지수 기반의 안정적 성장을 위해서는 [bold]리스크 관리와 국면 판단[/]이 핵심입니다.")
 
     # ── Disclaimer ──
     rprint("")
     if HAS_RICH:
         console.print(Panel(
-            "[bold red]⚠ DISCLAIMER[/]\n"
-            "EDUCATIONAL ONLY. Backtest results suffer from survivorship bias,\n"
-            "look-ahead bias, and cannot account for real market microstructure.\n"
-            "Real trading involves slippage, gaps, liquidity issues, and psychology.\n"
-            "Never risk money you can't afford to lose.",
+            "[bold red]⚠ 면책 조항 및 위험 고지[/]\n"
+            "본 도구의 분석 결과는 교육용 모델의 예측치일 뿐입니다. 실제 시장은 데이터로 설명할 수 없는\n"
+            "지정학적 리스크, 정책 변화, 돌발 악재 등으로 인해 급변할 수 있습니다.\n"
+            "과거의 성과가 미래의 수익을 보장하지 않으며, 모든 투자 결정과 책임은 본인에게 있습니다.\n"
+            "감당할 수 없는 자본으로 시장에 진입하지 마십시오.",
             border_style="red",
         ))
     else:
-        rprint("\n  ⚠ DISCLAIMER: EDUCATIONAL ONLY. Not financial advice.\n")
+        rprint("\n  ⚠ 면책 조항: 교육 및 참고용 자료입니다. 실전 투자 권유가 아닙니다.\n")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1517,25 +1502,20 @@ def export_results(symbol, all_results, output_path):
 
 
 def _compute_omni_signal(main_df, macro_df, mag7_df):
-    compat_map = {
-        "US10Y_Yield": "US10Y",
-        "US3M_Yield": "US2Y",
-        "Copper": "COPPER",
-        "Semiconductors": "SEMI",
-        "BTC": "BTC",
-    }
-    macro_compat = macro_df.rename(columns=compat_map) if not macro_df.empty else pd.DataFrame()
+    """v5 Integrated Market Diagnosis (7-Engine Scoring)"""
+    if main_df.empty:
+        return {"signal": "N/A", "confidence": 0.0, "note": "Data empty"}
     
     try:
-        e1 = Engine1_Macro.analyze(macro_compat)
-        e2 = Engine2_Fundamentals.analyze(mag7_df)
+        e1 = Engine1_Macro.analyze(macro_df)
+        e2 = Engine2_Fundamentals.analyze(mag7_df, main_df)
         e3 = Engine3_TechnicalFlows.analyze(main_df)
-        e4 = Engine4_Derivatives.analyze(macro_compat)
-        e5 = Engine5_SentimentAlt.analyze()
-        e6 = Engine6_CrossAsset.analyze(macro_compat)
+        e4 = Engine4_Derivatives.analyze(macro_df)
+        e5 = Engine5_SentimentAlt.analyze(main_df)
+        e6 = Engine6_CrossAsset.analyze(macro_df, main_df)
         e7 = Engine7_BehavioralRisks.analyze(main_df)
     except Exception as e:
-        return {"signal": "N/A", "confidence": 0.0, "note": str(e)}
+        return {"signal": "N/A", "confidence": 0.0, "note": f"Engine Error: {e}"}
 
     engine_results = {
         "1_macro": e1,
@@ -1546,51 +1526,64 @@ def _compute_omni_signal(main_df, macro_df, mag7_df):
         "6_cross_asset": e6,
         "7_behavioral": e7,
     }
+    
     total_score = sum(r["score"] for r in engine_results.values())
 
-    if total_score >= 1.0:
+    # Regime Determination Logic
+    if total_score >= 5.0:
         omni_signal = "BULLISH"
-    elif total_score <= -1.0:
+    elif total_score <= -5.0:
         omni_signal = "BEARISH"
     else:
         omni_signal = "NEUTRAL"
 
     omni_confidence = min(abs(total_score) / 15.0, 1.0)
 
+    # Market Regime Diagnosis
+    regime = "중립 국면 (Neutral)"
+    if total_score > 7: regime = "강력한 강세장 (Hyper-Bullish / Liquidity Expansion)"
+    elif total_score > 3: regime = "안정적 상승 (Stable Up-trend)"
+    elif total_score < -7: regime = "패닉/투매 국면 (Panic Sell / Risk-Off)"
+    elif total_score < -3: regime = "변동성 확대 및 하락 (Risk-Off / Volatility Spike)"
+    
+    if e4["score"] < -2: regime += " + 변동성 전이 주의"
+    if e1["score"] < -2: regime += " + 금리/유동성 압박"
+
     return {
         "signal": omni_signal,
         "confidence": round(omni_confidence, 4),
         "total_score": round(total_score, 2),
+        "regime_name": regime,
         "engine_details": engine_results,
     }
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Stock Market Predictor v2.0 — Enhanced with Macro, Backtesting & Risk Management",
+        description="글로벌 시장 옴니(Omni) 예측기 v5.0 — 7대 엔진 피처 고도화 및 정량적 시장 진단 도구",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=dedent("""\
-        Examples:
-          python stock_predictor_v2.py AAPL
-          python stock_predictor_v2.py 005930 --market kospi
-          python stock_predictor_v2.py BTC-USD --market crypto
-          python stock_predictor_v2.py TSLA --period 5y --capital 50000
-          python stock_predictor_v2.py MSFT --backtest-days 500 --export results.json
+        분석 예시:
+          python v5/market_predictor_v5.py ^GSPC          (S&P 500 지수 분석)
+          python v5/market_predictor_v5.py ^IXIC          (나스닥 지수 분석)
+          python v5/market_predictor_v5.py ^KS11          (코스피 지수 분석)
+          python v5/market_predictor_v5.py BTC-USD --market crypto (비트코인 분석)
+          python v5/market_predictor_v5.py SPY --backtest-days 500 (S&P 500 ETF 백테스트)
         """),
     )
-    parser.add_argument("symbol", help="Ticker symbol (e.g. AAPL, 005930, BTC-USD)")
+    parser.add_argument("symbol", nargs="?", default="^GSPC", help="분석 대상 시장 지수 또는 ETF 심볼 (기본값: ^GSPC)")
     parser.add_argument("--market", default="us",
                         choices=["us", "nyse", "nasdaq", "kospi", "kosdaq", "crypto"])
-    parser.add_argument("--period", default="2y", help="Data period (default: 2y)")
-    parser.add_argument("--skip-ml", action="store_true")
-    parser.add_argument("--skip-lstm", action="store_true")
-    parser.add_argument("--skip-sentiment", action="store_true")
-    parser.add_argument("--skip-macro", action="store_true")
-    parser.add_argument("--skip-backtest", action="store_true")
-    parser.add_argument("--skip-omni", action="store_true", help="Skip v3 7-engine analysis")
-    parser.add_argument("--capital", type=float, default=100_000, help="Starting capital for backtest")
-    parser.add_argument("--risk", type=float, default=0.02, help="Risk per trade (default: 0.02 = 2%%)")
-    parser.add_argument("--backtest-days", type=int, default=252, help="Days to backtest (default: 252)")
-    parser.add_argument("--export", metavar="FILE", help="Export results to JSON")
+    parser.add_argument("--period", default="2y", help="데이터 수집 기간 (기본값: 2y)")
+    parser.add_argument("--skip-ml", action="store_true", help="머신러닝 시장 예측 건너뛰기")
+    parser.add_argument("--skip-lstm", action="store_true", help="LSTM 지수 예측 건너뛰기")
+    parser.add_argument("--skip-sentiment", action="store_true", help="시장 감성 분석 건너뛰기")
+    parser.add_argument("--skip-macro", action="store_true", help="거시 체제 분석 건너뛰기")
+    parser.add_argument("--skip-backtest", action="store_true", help="지수 기반 백테스팅 건너뛰기")
+    parser.add_argument("--skip-omni", action="store_true", help="7-엔진 옴니 진단 건너뛰기")
+    parser.add_argument("--capital", type=float, default=100_000, help="백테스트 시작 자본금")
+    parser.add_argument("--risk", type=float, default=0.02, help="거래당 자산 위험 비중 (기본값: 0.02 = 2%%)")
+    parser.add_argument("--backtest-days", type=int, default=252, help="백테스트 기간 (거래일 단위, 기본값: 252)")
+    parser.add_argument("--export", metavar="FILE", help="분석 결과를 JSON 파일로 저장")
 
     args = parser.parse_args()
     print_banner()
@@ -1599,14 +1592,14 @@ def main():
     try:
         df = UnifiedDataFetcher.fetch(args.symbol, args.market, args.period)
     except Exception as e:
-        rprint(f"  ❌  {e}")
+        rprint(f"  ❌  오류 발생: {e}")
         sys.exit(1)
 
     # 2. Macro
     if args.skip_macro:
         macro_df = pd.DataFrame()
         macro_feat = pd.DataFrame()
-        macro_signal = {"signal": "N/A", "confidence": 0.0, "note": "Skipped."}
+        macro_signal = {"signal": "N/A", "confidence": 0.0, "note": "건너뜀."}
     else:
         try:
             macro_df = UnifiedDataFetcher.fetch_macro(args.period)
@@ -1617,7 +1610,7 @@ def main():
             macro_signal = {"signal": "N/A", "confidence": 0.0, "note": str(e)}
 
     # 3. Technical
-    rprint("\n  📊  Computing technical indicators ...")
+    rprint("\n  📊  기술적 지표 계산 중 ...")
     df = TechnicalAnalysis.compute(df)
     tech_signal = TechnicalAnalysis.get_signal(df)
 
@@ -1627,7 +1620,7 @@ def main():
     # Engine Features
     if args.skip_omni:
         engine_feat = pd.DataFrame()
-        omni_result = {"signal": "N/A", "confidence": 0.0, "note": "Skipped."}
+        omni_result = {"signal": "N/A", "confidence": 0.0, "note": "건너뜀."}
     else:
         engine_feat = EngineFeatureExtractor.compute(df, macro_df, mag7_df)
         omni_result = _compute_omni_signal(df, macro_df, mag7_df)
@@ -1635,7 +1628,7 @@ def main():
 
     # 4. ML
     if args.skip_ml or not HAS_SKLEARN:
-        ml_result = {"signal": "N/A", "confidence": 0.0, "note": "Skipped."}
+        ml_result = {"signal": "N/A", "confidence": 0.0, "note": "건너뜀."}
     else:
         try:
             ml_result = MLPredictor().train_and_predict(df, macro_feat, engine_feat)
@@ -1644,7 +1637,7 @@ def main():
 
     # 5. LSTM
     if args.skip_lstm or not HAS_TF:
-        lstm_result = {"signal": "N/A", "confidence": 0.0, "note": "Skipped."}
+        lstm_result = {"signal": "N/A", "confidence": 0.0, "note": "건너뜀."}
     else:
         try:
             lstm_result = LSTMPredictor().train_and_predict(df)
@@ -1653,9 +1646,9 @@ def main():
 
     # 6. Sentiment
     if args.skip_sentiment or not HAS_TEXTBLOB:
-        sent_result = {"signal": "N/A", "confidence": 0.0, "note": "Skipped."}
+        sent_result = {"signal": "N/A", "confidence": 0.0, "note": "건너뜀."}
     else:
-        rprint("\n  💬  Analyzing sentiment ...")
+        rprint("\n  💬  감성 분석 진행 중 ...")
         sent_result = SentimentAnalyzer.analyze(UnifiedDataFetcher.get_ticker(args.symbol, args.market))
 
     # 7. Ensemble
